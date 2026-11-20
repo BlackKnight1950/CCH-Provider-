@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>CCH Provider Finder</title>
+<script src="config.js"></script>
+<style>
+@font-face { font-family: "IBM Plex Sans"; font-style: normal; font-weight: 400; font-display: swap; src: url("fonts/ibm-plex-sans-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-style: normal; font-weight: 500; font-display: swap; src: url("fonts/ibm-plex-sans-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-style: normal; font-weight: 600; font-display: swap; src: url("fonts/ibm-plex-sans-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-style: normal; font-weight: 700; font-display: swap; src: url("fonts/ibm-plex-sans-latin-700-normal.woff2") format("woff2"); }
+
+/* Layout: sticky search bar on top, results scroll beneath. Two modes share one search field. */
+:root {
+  --bg: #f3f5f8;
+  --surface: #ffffff;
+  --ink: #17212f;
+  --muted: #5b6678;
+  --line: #d9dee7;
+  --accent: #1f4e8c;
+  --accent-ink: #ffffff;
+  --accent-soft: #e4edf9;
+  --ok-bg: #dcf1e4;
+  --ok-fg: #14572e;
+  --warn-bg: #fff0c2;
+  --warn-fg: #6b4a00;
+  --font: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1520;
+    --surface: #182130;
+    --ink: #e8edf5;
+    --muted: #9aa6ba;
+    --line: #2b374a;
+    --accent: #7fb0f0;
+    --accent-ink: #0b1626;
+    --accent-soft: #1d2d47;
+    --ok-bg: #173c28;
+    --ok-fg: #8fe0ae;
+    --warn-bg: #4a3a0c;
+    --warn-fg: #ffd770;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1520;
+  --surface: #182130;
+  --ink: #e8edf5;
+  --muted: #9aa6ba;
+  --line: #2b374a;
+  --accent: #7fb0f0;
+  --accent-ink: #0b1626;
+  --accent-soft: #1d2d47;
+  --ok-bg: #173c28;
+  --ok-fg: #8fe0ae;
+  --warn-bg: #4a3a0c;
+  --warn-fg: #ffd770;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 15px; line-height: 1.45; }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.top { position: sticky; top: 0; z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
+.top-inner { max-width: 1100px; margin: 0 auto; padding: 14px 16px 12px; display: flex; align-items: flex-start; gap: 18px; }
+.top-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.brand { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 0; }
+.brand img { display: block; width: 150px; height: auto; border-radius: 6px; border: 1px solid var(--line); }
+.brand figcaption { font-size: 12px; font-weight: 600; letter-spacing: 0.04em; color: var(--muted); white-space: nowrap; }
+.titlebar { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; }
+h1 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.01em; text-wrap: balance; }
+.meta { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+
+.modes { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; align-self: flex-start; }
+.modes button { background: transparent; border: 0; padding: 8px 16px; font-weight: 600; cursor: pointer; color: var(--muted); }
+.modes button + button { border-left: 1px solid var(--line); }
+.modes button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+
+.searchrow { display: flex; flex-wrap: wrap; gap: 10px; }
+.searchrow .q { flex: 1 1 320px; position: relative; }
+.q input { width: 100%; padding: 12px 40px 12px 14px; font-size: 17px; background: var(--bg); border: 2px solid var(--line); border-radius: 8px; }
+.q input:focus { border-color: var(--accent); outline: none; background: var(--surface); }
+.q .clear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 30px; height: 30px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; }
+.q .clear[hidden] { display: none; }
+.filters { display: flex; flex-wrap: wrap; gap: 10px; }
+.filters label { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--muted); font-weight: 500; }
+.filters select { padding: 9px 10px; min-width: 190px; max-width: 260px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; font-size: 14px; color: var(--ink); }
+
+main { max-width: 1100px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.status { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+.status strong { color: var(--ink); }
+
+/* provider cards */
+.cards { display: flex; flex-direction: column; gap: 10px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; grid-template-columns: minmax(220px, 300px) 1fr; gap: 10px 24px; }
+.who h2 { margin: 0; font-size: 18px; font-weight: 700; }
+.who .svc { margin-top: 2px; color: var(--ink); }
+.who .langs { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); }
+.chip { background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 2px 10px; font-weight: 600; font-size: 13px; }
+.where-h { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; margin-bottom: 4px; }
+.sites { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.sites li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; padding: 7px 0; border-top: 1px solid var(--line); }
+.sites li:first-child { border-top: 0; }
+.sites .loc { font-weight: 600; }
+
+.pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 6px; padding: 2px 9px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.pill.ok { background: var(--ok-bg); color: var(--ok-fg); }
+.pill.warn { background: var(--warn-bg); color: var(--warn-fg); }
+.gender { color: var(--muted); font-size: 13px; margin-left: 8px; }
+
+/* location mode */
+.locgrid { display: flex; flex-wrap: wrap; gap: 8px; }
+.locbtn { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; cursor: pointer; text-align: left; display: flex; gap: 10px; align-items: baseline; }
+.locbtn:hover { border-color: var(--accent); }
+.locbtn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.locbtn .n { font-size: 12px; opacity: 0.8; font-variant-numeric: tabular-nums; }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.panel-h { padding: 14px 16px; border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: center; justify-content: space-between; }
+.panel-h h2 { margin: 0; font-size: 18px; }
+.panel-h .inner { flex: 0 1 320px; }
+.panel-h input { width: 100%; padding: 8px 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; }
+.tablewrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; min-width: 760px; }
+th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 600; padding: 9px 16px; background: var(--bg); border-bottom: 1px solid var(--line); position: sticky; top: 0; }
+td { padding: 9px 16px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tbody tr:last-child td { border-bottom: 0; }
+td .namebtn { background: none; border: 0; padding: 0; color: var(--accent); font-weight: 600; cursor: pointer; text-align: left; text-decoration: underline; text-underline-offset: 3px; }
+.empty { background: var(--surface); border: 1px dashed var(--line); border-radius: 10px; padding: 28px 16px; text-align: center; color: var(--muted); }
+.hint { color: var(--muted); font-size: 13px; }
+
+@media (max-width: 560px) {
+  .top-inner { display: block; position: relative; }
+  .brand { position: absolute; top: 14px; right: 16px; }
+  .brand img { width: 92px; }
+  .brand figcaption { font-size: 11px; letter-spacing: 0.02em; }
+  .titlebar { padding-right: 108px; min-height: 84px; align-content: flex-start; }
+  .top-main { gap: 8px; }
+}
+@media (max-width: 720px) {
+  .card { grid-template-columns: 1fr; }
+  .filters select { min-width: 150px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .locbtn, .modes button { transition: background-color 0.12s, border-color 0.12s; }
+}
+.refreshnote { color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-inner">
+    <div class="top-main">
+    <div class="titlebar">
+      <h1>CCH Provider Finder</h1>
+      <div class="meta" id="meta">Loading provider data…</div>
+    </div>
+    <div class="modes" role="group" aria-label="Search by">
+      <button type="button" id="mode-provider" aria-pressed="true">Find by provider</button>
+      <button type="button" id="mode-location" aria-pressed="false">Find by location</button>
+    </div>
+    <div class="searchrow">
+      <div class="q">
+        <input id="q" type="text" autocomplete="off" spellcheck="false" aria-label="Search" placeholder="Type a provider's last name, first name, or both">
+        <button type="button" class="clear" id="clear" aria-label="Clear search" hidden>×</button>
+      </div>
+      <div class="filters">
+        <label for="f-svc">Specialty
+          <select id="f-svc"><option value="">All specialties</option></select>
+        </label>
+        <label for="f-lang">Language
+          <select id="f-lang"><option value="">Any language</option></select>
+        </label>
+      </div>
+    </div>
+    </div>
+    <figure class="brand">
+      <img src="pmoe-logo.png" width="330" height="172" alt="Project management graphic">
+      <figcaption>PMOE-powered</figcaption>
+    </figure>
+  </div>
+</header>
+
+<main id="main" aria-live="polite"></main>
+
+<script>
+(function () {
+  var state = { mode: 'provider', q: '', svc: '', lang: '', loc: null, q2: '' };
+  var DATA = [];            // providers (Provider Lookup sheet, sites from By Location sheet)
+  var LOCS = [];            // [{name, rows:[{p, status, gender}]}] (By Location sheet)
+  var VERSION = null, META = null, SITE_COUNT = 0, REFRESH_ERR = false, LOADED = false;
+  var CARD_LIMIT = 30, POLL_MS = 60000;
+  var API = String(window.PROVIDER_FINDER_API || '').replace(/\/+$/, '');
+
+  var $ = function (id) { return document.getElementById(id); };
+  var main = $('main'), qEl = $('q'), clearEl = $('clear');
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function norm(s) {
+    return String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+  function plural(n, one, many) { return n.toLocaleString() + ' ' + (n === 1 ? one : many); }
+  function fmtWhen(iso) {
+    try { return new Date(iso).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); }
+    catch (e) { return ''; }
+  }
+
+  function statusPill(status) {
+    if (!status) return '';
+    var ok = status.indexOf('Accepts') === 0;
+    return '<span class="pill ' + (ok ? 'ok' : 'warn') + '">' + (ok ? '✓ ' : '⚠ ') + esc(status) + '</span>';
+  }
+  function langChips(p) {
+    if (!p.langList.length) return '';
+    return '<span>Also speaks</span>' + p.langList.map(function (l) { return '<span class="chip">' + esc(l) + '</span>'; }).join('');
+  }
+  function passesFilters(p) {
+    if (state.svc && p.s !== state.svc) return false;
+    if (state.lang && p.langList.indexOf(state.lang) < 0) return false;
+    return true;
+  }
+
+  /* ---------- provider mode ---------- */
+  function matchProviders() {
+    var tokens = norm(state.q).split(' ').filter(Boolean);
+    var out = [];
+    DATA.forEach(function (p, i) {
+      if (!passesFilters(p)) return;
+      var score = 0;
+      if (tokens.length) {
+        for (var t = 0; t < tokens.length; t++) { if (p.key.indexOf(tokens[t]) < 0) return; }
+        score = p.key.indexOf(tokens[0]) === 0 ? 0 : (p.key.indexOf(' ' + tokens[0]) >= 0 ? 1 : 2);
+      }
+      out.push({ p: p, score: score, i: i });
+    });
+    out.sort(function (a, b) { return a.score - b.score || a.i - b.i; });
+    return out.map(function (x) { return x.p; });
+  }
+
+  function renderProviders() {
+    var res = matchProviders();
+    var anyFilter = state.q || state.svc || state.lang;
+    if (!res.length) {
+      main.innerHTML = '<div class="empty"><strong>No providers match.</strong><br>Check the spelling, try just the last name, or clear the specialty and language filters.</div>';
+      return;
+    }
+    var shown = res.slice(0, CARD_LIMIT);
+    var html = '<div class="status">' + (anyFilter ? '<strong>' + plural(res.length, 'provider', 'providers') + '</strong> found' : 'Showing the first ' + shown.length + ' of <strong>' + res.length.toLocaleString() + '</strong> providers, A to Z') +
+      (res.length > shown.length ? (anyFilter ? '. Showing the first ' + shown.length + '; keep typing to narrow.' : '. Start typing a name to narrow.') : '') + '</div>';
+    html += '<div class="cards">' + shown.map(function (p) {
+      return '<article class="card"><div class="who"><h2>' + esc(p.n) + '</h2><div class="svc">' + esc(p.s) + '</div>' + (p.langList.length ? '<div class="langs">' + langChips(p) + '</div>' : '') + '</div>' +
+        '<div><div class="where-h">Practices at ' + plural(p.t.length, 'location', 'locations') + '</div><ul class="sites">' +
+        p.t.map(function (s) {
+          return '<li><span class="loc">' + esc(s[0]) + '</span><span>' + statusPill(s[1]) + (s[2] ? '<span class="gender">' + esc(s[2]) + '</span>' : '') + '</span></li>';
+        }).join('') + '</ul></div></article>';
+    }).join('') + '</div>';
+    main.innerHTML = html;
+  }
+
+  /* ---------- location mode ---------- */
+  function matchLocations() {
+    var tokens = norm(state.q).split(' ').filter(Boolean);
+    return LOCS.filter(function (l) {
+      var k = norm(l.name);
+      return tokens.every(function (t) { return k.indexOf(t) >= 0; });
+    });
+  }
+  function selectedLoc() {
+    return LOCS.filter(function (l) { return l.name === state.loc; })[0] || null;
+  }
+  function filterRows(sel) {
+    var tokens = norm(state.q2).split(' ').filter(Boolean);
+    return sel.rows.filter(function (r) {
+      return passesFilters(r.p) && tokens.every(function (t) { return r.p.key.indexOf(t) >= 0; });
+    });
+  }
+  function countText(rows, sel) {
+    return plural(rows.length, 'provider', 'providers') + (rows.length !== sel.rows.length ? ' of ' + sel.rows.length.toLocaleString() + ' after filters' : '');
+  }
+  function rowsHtml(rows) {
+    if (!rows.length) return '<tr><td colspan="5" class="hint">No providers at this location match those filters.</td></tr>';
+    return rows.map(function (r) {
+      return '<tr><td><button type="button" class="namebtn" data-prov="' + esc(r.p.n) + '">' + esc(r.p.n) + '</button></td><td>' + esc(r.p.s) + '</td><td>' + esc(r.p.l) + '</td><td>' + statusPill(r.status) + '</td><td>' + esc(r.gender) + '</td></tr>';
+    }).join('');
+  }
+
+  function renderLocations() {
+    var matches = matchLocations();
+    if (state.q && matches.length === 1) state.loc = matches[0].name;
+    else if (state.loc && !matches.some(function (l) { return l.name === state.loc; })) state.loc = null;
+
+    if (!matches.length) {
+      main.innerHTML = '<div class="empty"><strong>No location matches.</strong><br>Try a shorter word, such as "Stroger", "Austin" or "Robbins".</div>';
+      return;
+    }
+    var html = '<div class="status">' + (state.q ? '<strong>' + plural(matches.length, 'location', 'locations') + '</strong> match. ' : '<strong>' + LOCS.length + ' locations.</strong> ') + (state.loc ? '' : 'Choose one to see its providers.') + '</div>';
+    html += '<div class="locgrid" role="group" aria-label="Locations">' + matches.map(function (l) {
+      return '<button type="button" class="locbtn" data-loc="' + esc(l.name) + '" aria-pressed="' + (l.name === state.loc) + '"><span>' + esc(l.name) + '</span><span class="n">' + l.rows.length + '</span></button>';
+    }).join('') + '</div>';
+
+    var sel = selectedLoc();
+    if (sel) {
+      var rows = filterRows(sel);
+      html += '<section class="panel" aria-label="Providers at ' + esc(sel.name) + '">' +
+        '<div class="panel-h"><div><h2>' + esc(sel.name) + '</h2><div class="hint" id="rowcount">' + countText(rows, sel) + '</div></div>' +
+        '<div class="inner"><input id="q2" type="text" autocomplete="off" aria-label="Narrow by provider name" placeholder="Narrow by provider name" value="' + esc(state.q2) + '"></div></div>' +
+        '<div class="tablewrap"><table><thead><tr><th scope="col">Provider</th><th scope="col">Specialty</th><th scope="col">Languages</th><th scope="col">Accepting new patients</th><th scope="col">Gender accepted</th></tr></thead><tbody id="tbody">' +
+        rowsHtml(rows) + '</tbody></table></div></section>';
+    }
+    main.innerHTML = html;
+  }
+
+  /* ---------- shared ---------- */
+  function setMeta() {
+    if (!LOADED) return;
+    var t = DATA.length.toLocaleString() + ' providers · ' + LOCS.length + ' locations · ' + SITE_COUNT.toLocaleString() + ' provider-site listings';
+    if (META && META.modifiedAt) t += ' · Smartsheet last edited ' + fmtWhen(META.modifiedAt);
+    if (REFRESH_ERR) t += ' · could not refresh, showing last saved data';
+    $('meta').textContent = t;
+  }
+  function render() {
+    clearEl.hidden = !state.q;
+    if (!LOADED) return;
+    if (state.mode === 'provider') renderProviders(); else renderLocations();
+  }
+
+  function fillSelect(id, label, values, current) {
+    var sel = $(id);
+    sel.innerHTML = '<option value="">' + label + '</option>' + values.map(function (v) { return '<option>' + esc(v) + '</option>'; }).join('');
+    sel.value = values.indexOf(current) >= 0 ? current : '';
+    return sel.value;
+  }
+
+  function applyData(payload) {
+    var svcs = {}, langs = {}, locMap = {};
+    DATA = payload.providers.map(function (p) {
+      p.key = norm(p.n);
+      p.langList = p.l ? p.l.split(', ') : [];
+      if (p.s) svcs[p.s] = 1;
+      p.langList.forEach(function (l) { langs[l] = 1; });
+      return p;
+    });
+    SITE_COUNT = payload.sites.length;
+    payload.sites.forEach(function (r) {
+      var p = { n: r[1], s: r[2], l: r[3], key: norm(r[1]), langList: r[3] ? r[3].split(', ') : [] };
+      if (p.s) svcs[p.s] = 1;
+      p.langList.forEach(function (l) { langs[l] = 1; });
+      (locMap[r[0]] = locMap[r[0]] || []).push({ p: p, status: r[4], gender: r[5] });
+    });
+    LOCS = Object.keys(locMap).sort(function (a, b) { return a.toLowerCase() < b.toLowerCase() ? -1 : 1; })
+      .map(function (n) { return { name: n, rows: locMap[n] }; });
+    state.svc = fillSelect('f-svc', 'All specialties', Object.keys(svcs).sort(), state.svc);
+    state.lang = fillSelect('f-lang', 'Any language', Object.keys(langs).sort(), state.lang);
+    if (state.loc && !LOCS.some(function (l) { return l.name === state.loc; })) state.loc = null;
+    META = payload;
+    LOADED = true;
+    setMeta();
+
+    var ae = document.activeElement, id = ae && ae.id, pos = ae && ae.selectionStart;
+    render();
+    if (id && id !== 'q' && $(id)) {
+      $(id).focus();
+      try { $(id).setSelectionRange(pos, pos); } catch (e) { /* not a text field */ }
+    }
+  }
+
+  function showLoadError(msg) {
+    main.innerHTML = '<div class="empty"><strong>The provider list could not be loaded.</strong><br>' + esc(msg) + '<br><br><button type="button" class="locbtn" id="retry">Try again</button></div>';
+  }
+
+  function load() {
+    var url = API + '/api/data' + (VERSION ? '?v=' + encodeURIComponent(VERSION) : '');
+    return fetch(url, { cache: 'no-store' }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        if (!r.ok) throw new Error(j.error || ('The server answered HTTP ' + r.status + '.'));
+        return j;
+      });
+    }).then(function (j) {
+      REFRESH_ERR = !!j.stale;
+      if (j.unchanged) { setMeta(); return; }
+      VERSION = j.version;
+      applyData(j);
+    }).catch(function (err) {
+      if (!LOADED) {
+        $('meta').textContent = 'Data failed to load';
+        showLoadError(err instanceof TypeError
+          ? 'Could not reach the data server (' + API.replace(/^https?:\/\//, '') + '). If it was asleep, wait a minute and try again.'
+          : err.message);
+      }
+      else { REFRESH_ERR = true; setMeta(); }
+    });
+  }
+
+  function setMode(mode, keepQuery) {
+    state.mode = mode;
+    if (!keepQuery) { state.q = ''; qEl.value = ''; }
+    $('mode-provider').setAttribute('aria-pressed', mode === 'provider');
+    $('mode-location').setAttribute('aria-pressed', mode === 'location');
+    qEl.placeholder = mode === 'provider' ? "Type a provider's last name, first name, or both" : 'Type a clinic or hospital name, or pick one below';
+    render();
+    qEl.focus();
+  }
+
+  $('mode-provider').addEventListener('click', function () { setMode('provider'); });
+  $('mode-location').addEventListener('click', function () { state.loc = null; state.q2 = ''; setMode('location'); });
+  qEl.addEventListener('input', function () { state.q = qEl.value; if (state.mode === 'location') state.q2 = ''; render(); });
+  clearEl.addEventListener('click', function () { state.q = ''; qEl.value = ''; render(); qEl.focus(); });
+  $('f-svc').addEventListener('change', function (e) { state.svc = e.target.value; render(); });
+  $('f-lang').addEventListener('change', function (e) { state.lang = e.target.value; render(); });
+
+  main.addEventListener('click', function (e) {
+    if (e.target.closest('#retry')) { main.innerHTML = '<div class="empty">Loading the latest provider data…</div>'; load(); return; }
+    var b = e.target.closest('[data-loc]');
+    if (b) { state.loc = b.getAttribute('data-loc'); state.q2 = ''; render(); return; }
+    var n = e.target.closest('[data-prov]');
+    if (n) {
+      state.svc = ''; state.lang = ''; $('f-svc').value = ''; $('f-lang').value = '';
+      state.q = n.getAttribute('data-prov'); qEl.value = state.q;
+      setMode('provider', true);
+      window.scrollTo(0, 0);
+    }
+  });
+  main.addEventListener('input', function (e) {
+    if (e.target.id === 'q2') {
+      state.q2 = e.target.value;
+      var sel = selectedLoc();
+      if (!sel) return;
+      var rows = filterRows(sel);
+      $('tbody').innerHTML = rowsHtml(rows);
+      $('rowcount').textContent = countText(rows, sel);
+    }
+  });
+
+  /* ---------- go ---------- */
+  if (!API || /replace/i.test(API)) {
+    $('meta').textContent = 'Not connected to a data server';
+    main.innerHTML = '<div class="empty"><strong>This page has no data server address yet.</strong><br>Open config.js in the GitHub repository and set the Render address.</div>';
+  } else {
+    main.innerHTML = '<div class="empty">Loading the latest provider data…<br><span class="hint">The first load of the day can take up to a minute.</span></div>';
+    load().then(function () { qEl.focus(); });
+    setInterval(load, POLL_MS);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) load(); });
+  }
+})();
+</script>
+</body>
+</html>
