@@ -1,0 +1,22 @@
+# Optional Render Blueprint. You can also create the service by hand (see README.md).
+services:
+  - type: web
+    name: cch-provider-finder
+    runtime: node
+    # "free" sleeps after ~15 minutes without traffic, so the first agent of the day waits up to a minute.
+    # Change to "starter" for an always-on service.
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: SMARTSHEET_API_KEY
+        sync: false          # paste the token in the Render dashboard; never commit it
+      - key: APP_PASSWORD
+        sync: false          # optional but recommended: agents enter it once per browser
+      - key: PROVIDER_SHEET_ID
+        value: "4254079686758276"
+      - key: LOCATION_SHEET_ID
+        value: "4255312342372228"
+      - key: REFRESH_SECONDS
+        value: "30"
